@@ -161,13 +161,39 @@ try {
         }
     }
 
-    # Validate the same import path consumers use, rather than trusting archive creation alone.
+    # Validate from a fresh crates.io consumer, which matches how Skiala will import the cache.
     Remove-Item Env:FORCE_SKIA_BUILD -ErrorAction SilentlyContinue
     Remove-Item Env:BUILD_ARTIFACTSTAGINGDIRECTORY -ErrorAction SilentlyContinue
     $env:FORCE_SKIA_BINARIES_DOWNLOAD = "1"
     $env:SKIA_BINARIES_URL = ([System.Uri]$archivePath).AbsoluteUri
-    Invoke-Checked cargo @("clean", "-p", "skia-bindings", "--target", $Target) "clean before cache reimport"
-    Invoke-Checked cargo $buildArguments "cache reimport validation"
+
+    $smokeRoot = Join-Path $workRoot "v"
+    $smokeSourceRoot = Join-Path $smokeRoot "src"
+    $validationTargetRoot = Join-Path $workRoot "vt"
+    New-Item -ItemType Directory -Force $smokeSourceRoot, $validationTargetRoot | Out-Null
+    $tomlFeatures = ($cargoFeatures.Split(",") | ForEach-Object { '"' + $_ + '"' }) -join ", "
+    $defaultFeatures = if ($noDefaultFeatures) { "false" } else { "true" }
+    @"
+[package]
+name = "skia-cache-smoke"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+skia-safe = { version = "=$version", default-features = $defaultFeatures, features = [$tomlFeatures] }
+
+[workspace]
+"@ | Set-Content -Encoding utf8 (Join-Path $smokeRoot "Cargo.toml")
+    'fn main() { let _ = skia_safe::Color::BLACK; }' |
+        Set-Content -Encoding utf8 (Join-Path $smokeSourceRoot "main.rs")
+    $env:CARGO_TARGET_DIR = $validationTargetRoot
+    Invoke-Checked cargo @(
+        "build",
+        "--manifest-path", (Join-Path $smokeRoot "Cargo.toml"),
+        "--release",
+        "--target", $Target
+    ) "fresh consumer cache import validation"
 
     $archiveHash = (Get-FileHash -Algorithm SHA256 $archivePath).Hash.ToLowerInvariant()
     $sourceCommit = (Get-CommandText git @("rev-parse", "HEAD")).Trim()
