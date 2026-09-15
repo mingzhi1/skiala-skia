@@ -72,7 +72,6 @@ $buildArguments = @(
     "build",
     "-p", "skia-safe",
     "--release",
-    "--locked",
     "--target", $Target,
     "--features", $cargoFeatures
 )
@@ -146,6 +145,15 @@ try {
 
     $archiveHash = (Get-FileHash -Algorithm SHA256 $archivePath).Hash.ToLowerInvariant()
     $sourceCommit = (Get-CommandText git @("rev-parse", "HEAD")).Trim()
+    $resolvedLockPath = Join-Path $sourceRoot "Cargo.lock"
+    if (-not (Test-Path $resolvedLockPath)) {
+        throw "Cargo did not create a resolved Cargo.lock"
+    }
+    $publishedLockName = "rust-skia-$version-Cargo.lock"
+    $publishedLockPath = Join-Path $outputRoot $publishedLockName
+    Copy-Item $resolvedLockPath $publishedLockPath
+    $lockHash = (Get-FileHash -Algorithm SHA256 $publishedLockPath).Hash.ToLowerInvariant()
+
     $metadata = [ordered]@{
         schema = 1
         profile = $Profile
@@ -160,6 +168,8 @@ try {
         archive = $archiveName
         archiveSha256 = $archiveHash
         archiveBytes = (Get-Item $archivePath).Length
+        cargoLock = $publishedLockName
+        cargoLockSha256 = $lockHash
         validatedByReimport = $true
         generatedAtUtc = [DateTime]::UtcNow.ToString("o")
         toolchain = [ordered]@{

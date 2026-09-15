@@ -80,3 +80,4 @@ jobs:
             artifacts/*.tar.gz
             artifacts/*.sha256
             artifacts/*.json
+            artifacts/*.lock

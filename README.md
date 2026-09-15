@@ -20,7 +20,7 @@ The Windows 2022 matrix performs these steps for each profile:
 3. Uses rust-skia's own cache exporter to produce the canonical `skia-binaries/` layout.
 4. Verifies the expected cache key and checks `skia-bindings.lib` for `DEFAULTLIB:LIBCMT`.
 5. Creates a `tar.gz`, then deletes the built bindings and rebuilds through `SKIA_BINARIES_URL` to validate import.
-6. Uploads the archive, SHA-256 file, and toolchain metadata as a GitHub Actions artifact.
+6. Uploads the archive, SHA-256 file, resolved upstream `Cargo.lock`, and toolchain metadata as a GitHub Actions artifact.
 
 Pushes to `main` and manual dispatches retain artifacts for 30 days. A `cache-v*` tag publishes the validated files as durable GitHub Release assets.
 
@@ -48,4 +48,4 @@ cargo build --release --locked --target x86_64-pc-windows-msvc
 
 `SKIA_BINARIES_URL` points to one exact archive, so build the Skiala and Slint fixtures separately with their respective URLs. Do not rename or substitute an upstream `/MD` archive: mixing it with a `/MT` Rust executable violates the packaging baseline and can cross incompatible CRT allocation boundaries.
 
-Each archive contains Skia's license as `LICENSE_SKIA`. Release assets should be retained together with their generated metadata and checksum files.
+Each archive contains Skia's license as `LICENSE_SKIA`. The rust-skia release tags do not ship a directly usable workspace lockfile, so CI resolves one during the build and publishes it with its SHA-256 in metadata. Release assets should retain the archive, generated lockfile, metadata, and checksum together.
