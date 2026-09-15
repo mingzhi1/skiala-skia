@@ -48,12 +48,22 @@ function Invoke-Checked {
         [Parameter(Mandatory = $true)]
         [string]$FilePath,
         [Parameter(Mandatory = $true)]
-        [string[]]$ArgumentList
+        [string[]]$ArgumentList,
+        [string]$Phase = $FilePath
     )
 
-    & $FilePath @ArgumentList
-    if ($LASTEXITCODE -ne 0) {
-        throw "$FilePath failed with exit code $LASTEXITCODE"
+    $tail = [System.Collections.Generic.Queue[string]]::new()
+    & $FilePath @ArgumentList 2>&1 | ForEach-Object {
+        $line = $_.ToString()
+        Write-Host $line
+        $tail.Enqueue($line)
+        while ($tail.Count -gt 40) {
+            [void]$tail.Dequeue()
+        }
+    }
+    $exitCode = $LASTEXITCODE
+    if ($exitCode -ne 0) {
+        throw "$Phase failed with exit code $exitCode`n$($tail -join "`n")"
     }
 }
 
@@ -101,7 +111,7 @@ try {
     Remove-Item Env:SKIA_BINARIES_URL -ErrorAction SilentlyContinue
     Remove-Item Env:FORCE_SKIA_BINARIES_DOWNLOAD -ErrorAction SilentlyContinue
 
-    Invoke-Checked cargo $buildArguments
+    Invoke-Checked cargo $buildArguments "source build and cache export"
 
     $cacheDirectory = Join-Path $stagingRoot "skia-binaries"
     $keyPath = Join-Path $cacheDirectory "key.txt"
@@ -156,8 +166,8 @@ try {
     Remove-Item Env:BUILD_ARTIFACTSTAGINGDIRECTORY -ErrorAction SilentlyContinue
     $env:FORCE_SKIA_BINARIES_DOWNLOAD = "1"
     $env:SKIA_BINARIES_URL = ([System.Uri]$archivePath).AbsoluteUri
-    Invoke-Checked cargo @("clean", "-p", "skia-bindings", "--target", $Target)
-    Invoke-Checked cargo $buildArguments
+    Invoke-Checked cargo @("clean", "-p", "skia-bindings", "--target", $Target) "clean before cache reimport"
+    Invoke-Checked cargo $buildArguments "cache reimport validation"
 
     $archiveHash = (Get-FileHash -Algorithm SHA256 $archivePath).Hash.ToLowerInvariant()
     $sourceCommit = (Get-CommandText git @("rev-parse", "HEAD")).Trim()
