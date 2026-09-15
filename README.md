@@ -16,11 +16,12 @@ The versions and feature sets are intentionally independent. A cache is valid on
 The Windows 2022 matrix performs these steps for each profile:
 
 1. Clones the exact upstream rust-skia tag.
-2. Forces a source build with `RUSTFLAGS=-C target-feature=+crt-static`.
-3. Uses rust-skia's own cache exporter to produce the canonical `skia-binaries/` layout.
-4. Verifies the expected cache key and checks `skia-bindings.lib` for `DEFAULTLIB:LIBCMT`.
-5. Creates a `tar.gz`, then deletes the built bindings and rebuilds through `SKIA_BINARIES_URL` to validate import.
-6. Uploads the archive, SHA-256 file, resolved upstream `Cargo.lock`, and toolchain metadata as a GitHub Actions artifact.
+2. Enables Git long-path handling and builds from short drive-root source/target paths to stay below legacy Ninja/MSVC path limits.
+3. Forces a source build with `RUSTFLAGS=-C target-feature=+crt-static`.
+4. Uses rust-skia's own cache exporter to produce the canonical `skia-binaries/` layout.
+5. Verifies the expected cache key and checks `skia-bindings.lib` for `DEFAULTLIB:LIBCMT`.
+6. Creates a `tar.gz`, then deletes the built bindings and rebuilds through `SKIA_BINARIES_URL` to validate import.
+7. Uploads the archive, SHA-256 file, resolved upstream `Cargo.lock`, and toolchain metadata as a GitHub Actions artifact.
 
 Pushes to `main` and manual dispatches retain artifacts for 30 days. A `cache-v*` tag publishes the validated files as durable GitHub Release assets.
 

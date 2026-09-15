@@ -10,13 +10,11 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
-$workRoot = Join-Path $repositoryRoot "_work\$Profile"
-$sourceRoot = Join-Path $workRoot "rust-skia"
-$stagingRoot = Join-Path $workRoot "staging"
 $outputRoot = Join-Path $repositoryRoot "artifacts\$Profile"
 
 switch ($Profile) {
     "skiala-0.153.3-cpu" {
+        $shortName = "s153"
         $version = "0.153.3"
         $cargoFeatures = "binary-cache,embed-icudtl,textlayout"
         $noDefaultFeatures = $true
@@ -24,6 +22,7 @@ switch ($Profile) {
         $consumer = "Skiala/minimal CPU raster with SkParagraph"
     }
     "slint-0.99.0-opengl" {
+        $shortName = "s099"
         $version = "0.99.0"
         $cargoFeatures = "d3d,gl,textlayout"
         $noDefaultFeatures = $false
@@ -31,6 +30,12 @@ switch ($Profile) {
         $consumer = "Slint 1.17.1 Skia OpenGL startup reference"
     }
 }
+
+$workDrive = [IO.Path]::GetPathRoot($repositoryRoot)
+$workRoot = Join-Path $workDrive "s\$shortName"
+$sourceRoot = Join-Path $workRoot "r"
+$stagingRoot = Join-Path $workRoot "o"
+$targetRoot = Join-Path $workRoot "t"
 
 function Invoke-Checked {
     param(
@@ -57,8 +62,10 @@ function Get-CommandText {
 }
 
 Remove-Item $workRoot, $outputRoot -Recurse -Force -ErrorAction SilentlyContinue
-New-Item -ItemType Directory -Force $workRoot, $stagingRoot, $outputRoot | Out-Null
+New-Item -ItemType Directory -Force $workRoot, $stagingRoot, $targetRoot, $outputRoot | Out-Null
 
+# Skia contains generated test assets whose names exceed legacy MAX_PATH under Actions' checkout.
+Invoke-Checked git @("config", "--global", "core.longpaths", "true")
 Invoke-Checked git @(
     "clone",
     "--branch", $version,
@@ -82,6 +89,7 @@ if ($noDefaultFeatures) {
 Push-Location $sourceRoot
 try {
     $env:RUSTFLAGS = "-C target-feature=+crt-static"
+    $env:CARGO_TARGET_DIR = $targetRoot
     $env:FORCE_SKIA_BUILD = "1"
     $env:BUILD_ARTIFACTSTAGINGDIRECTORY = $stagingRoot
     Remove-Item Env:SKIA_BINARIES_URL -ErrorAction SilentlyContinue
