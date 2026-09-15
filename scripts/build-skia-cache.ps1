@@ -9,6 +9,12 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
+trap {
+    $message = $_.Exception.Message.Replace("%", "%25").Replace("`r", "%0D").Replace("`n", "%0A")
+    Write-Host "::error title=Static Skia cache build failed::$message"
+    exit 1
+}
+
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $outputRoot = Join-Path $repositoryRoot "artifacts\$Profile"
 
@@ -118,11 +124,13 @@ try {
         throw "Missing skia-bindings.lib in exported cache"
     }
     $directives = Get-CommandText dumpbin @("/directives", $bindingsLibrary)
-    if ($directives -notmatch "(?i)DEFAULTLIB:LIBCMT") {
-        throw "skia-bindings.lib does not declare the static MSVC runtime LIBCMT"
+    if ($directives -notmatch '(?i)RuntimeLibrary=MT_StaticRelease' -or
+        $directives -notmatch '(?i)DEFAULTLIB:"?LIBCMT') {
+        throw "skia-bindings.lib does not declare the static MSVC runtime MT_StaticRelease/LIBCMT"
     }
-    if ($directives -match "(?i)DEFAULTLIB:MSVCRT") {
-        throw "skia-bindings.lib unexpectedly declares the dynamic MSVC runtime MSVCRT"
+    if ($directives -match '(?i)RuntimeLibrary=MD_DynamicRelease' -or
+        $directives -match '(?i)DEFAULTLIB:"?MSVCRT') {
+        throw "skia-bindings.lib unexpectedly declares the dynamic MSVC runtime"
     }
 
     $archiveName = "skia-binaries-$actualKey.tar.gz"
