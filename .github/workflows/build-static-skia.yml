@@ -33,11 +33,6 @@ jobs:
         with:
           targets: x86_64-pc-windows-msvc
 
-      - name: Configure MSVC developer environment
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-
       - name: Install native build tools
         shell: pwsh
         run: |

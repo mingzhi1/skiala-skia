@@ -133,7 +133,7 @@ try {
     if (-not (Test-Path $bindingsLibrary)) {
         throw "Missing skia-bindings.lib in exported cache"
     }
-    $directives = Get-CommandText dumpbin @("/directives", $bindingsLibrary)
+    $directives = Get-CommandText llvm-readobj @("--coff-directives", $bindingsLibrary)
     if ($directives -notmatch '(?i)RuntimeLibrary=MT_StaticRelease' -or
         $directives -notmatch '(?i)DEFAULTLIB:"?LIBCMT') {
         throw "skia-bindings.lib does not declare the static MSVC runtime MT_StaticRelease/LIBCMT"
@@ -228,7 +228,7 @@ skia-safe = { version = "=$version", default-features = $defaultFeatures, featur
             rustc = Get-CommandText rustc @("-Vv")
             cargo = Get-CommandText cargo @("-V")
             clang = Get-CommandText clang @("--version")
-            msvcDeveloperCommandVersion = $env:VSCMD_VER
+            llvmReadObj = Get-CommandText llvm-readobj @("--version")
             runnerImage = $env:ImageOS
         }
     }
